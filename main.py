@@ -19,26 +19,14 @@ in_vid_list = []
 
 fps = cap.get(cv2.CAP_PROP_FPS)
 
-# Filter results so they only include those within the specified range
-"""
-def filter_results(results):
-
-    to_display = []
-    # x, y, w, h = box
-
-    for box in results.boxes:
-        print("----------------")
-        print(box)
-        print("----------------")
-
-        y_center = box.xywh[0][1]
-
-        if tracking_begin < y_center < tracking_end:
-            to_display.append(box)
-    return to_display
-"""
-
+video_start = 0
 # Loop through the video frames
+
+# Specifies at what intervals traffic data is collected over
+data_collection_interval = 1
+total_time_requirement = data_collection_interval
+
+
 while cap.isOpened():
     # Read a frame from the video
     success, frame = cap.read()
@@ -46,19 +34,21 @@ while cap.isOpened():
     if success:
 
         # must press a to advance ot next frame
+
+        """
         if cv2.waitKey(0) & 0xFF == ord('n'):
             continue
+        """
 
-
-        # adding this comment due to github
-
-        tracking_begin = 300
-        tracking_end = 500
+        tracking_begin = 600
+        tracking_end = 900
+        dist_feet = 35  # 35 feet in between teh two points
+        speed_limit = 40 # once again, a guess. 40 mph
         cv2.line(frame, (0, tracking_begin), (2000, tracking_begin), (0, 255, 0), 3)
         cv2.line(frame, (0, tracking_end), (2000, tracking_end), (0, 0, 255), 3)
 
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
-        results = model.track(frame, persist=True, conf=0.45)
+        results = model.track(frame, persist=True, conf=0.1)
 
         # Get the boxes and track IDs
         boxes = results[0].boxes.xywh.cpu()
@@ -66,17 +56,27 @@ while cap.isOpened():
 
         # Visualize the results on the frame
         annotated_frame = results[0].plot()
-        #annotated_frame = filter_results(results[0])
         # Display the annotated frame
         annotated_frame = cv2.resize(annotated_frame, (960,540))
         cv2.imshow("YOLOv8 Tracking", annotated_frame)
+
+
+
+
+        video_start += 1
+        vid_at = video_start / fps  # works
+
+
+        if vid_at > total_time_requirement:
+            # This works
+            print(f"total_time_requirement: {total_time_requirement}")
+            # Process the data
+            total_time_requirement += data_collection_interval
 
         # Plot the tracks
         for box, track_id in zip(boxes, track_ids):
 
             x, y, w, h = box
-
-
 
             # Check if the box is in range
             if y > tracking_begin:  # in between the lines
@@ -96,23 +96,7 @@ while cap.isOpened():
                     # set its value in the list to 0
                     track_history[track_id] = 0
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         # we can loop through the object's bounding boxes and see if they are below a certain point
-
-
         # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord("q"):
             print("Q has been pressed")
