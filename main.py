@@ -36,34 +36,53 @@ def graph_data(graph_list):
     time = [item[0] for item in graph_list]
     percent_difference = [item[1] for item in graph_list]
 
-    plt.figure(figsize=(16, 6))
-    ax = plt.gca()  # Getting the current axes
+    if len(time) != 0:
 
-    ax.plot(time, percent_difference, marker='o')  # Plotting the data points
+        plt.figure(figsize=(16, 6))
+        ax = plt.gca()  # Getting the current axes
 
-    # Adding labels and title
-    ax.set_xlabel('Time (Sec)')
-    ax.set_ylabel('Percent Difference')
-    ax.set_title('Time vs Percent Difference')
+        ax.plot(time, percent_difference, marker='o')  # Plotting the data points
 
-    # Creating the table data
-    table_data = np.column_stack([time, np.round(percent_difference, 1)])
+        # Adding labels and title
+        ax.set_xlabel('Time (Sec)')
+        ax.set_ylabel('Percent Difference')
+        ax.set_title('Time vs Percent Difference')
 
-    # Manually setting the position of the table relative to the plot's axes
-    # The bbox argument defines the position: [left, bottom, width, height]
-    table = ax.table(cellText=table_data, colLabels=['Time', 'Percent Difference'], loc='center right',
-                     bbox=[1.1, 0.1, 0.2, 0.8])
+        # Creating the table data
+        table_data = np.column_stack([time, np.round(percent_difference, 1)])
 
-    # Adjusting table properties for better layout
-    table.auto_set_font_size(False)
-    table.set_fontsize(8)
-    table.scale(1, 1.5)
+        # Manually setting the position of the table relative to the plot's axes
+        # The bbox argument defines the position: [left, bottom, width, height]
+        table = ax.table(cellText=table_data, colLabels=['Time', 'Percent Difference'], loc='center right',
+                         bbox=[1.1, 0.1, 0.2, 0.8])
 
-    # Adjusting plot layout to ensure proper display
-    plt.tight_layout()
+        # Adjusting table properties for better layout
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.5)
 
-    # Display the plot
-    plt.show()
+        # Adjusting plot layout to ensure proper display
+        plt.tight_layout()
+
+        # Display the plot
+        plt.show()
+    else:
+        text = "Video has not reached minimum time interval for data collection"
+        print(text)
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(10, 6))
+        # Hide the axes
+        ax.axis('off')
+        # Display the text
+        ax.text(0.5, 0.5, text, fontsize=20, ha='center', color='red')
+
+
+        # Show the plot
+        plt.show()
+
+
+
 
 def record_traffic_percentage(times_list, time):
 
