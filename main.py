@@ -12,7 +12,7 @@ DATA_COLLECTION_INTERVAL = 8
 
 # The road's speed limit and the distance between the two marked lines
 SPEED_LIMIT = 66  # 45 mph = 66 ft/sec
-DIST = 35  # feet
+DIST = 18.4  # feet
 
 # Where vehicles should begin to be tracked
 TRACKING_BEGIN = 700
@@ -51,8 +51,8 @@ def graph_data(graph_list):
 
         # Add labels and title
         ax.set_xlabel('Time (Sec)')
-        ax.set_ylabel('Percent Difference')
-        ax.set_title('Time vs Percent Difference')
+        ax.set_ylabel('Traffic Percentage')
+        ax.set_title('Time vs Traffic Percentage')
 
         # Create table data/table
         table_data = np.column_stack([time, np.round(percent_difference, 1)])
