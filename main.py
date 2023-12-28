@@ -3,11 +3,22 @@ from ultralytics import YOLO
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-
 model = YOLO('yolov8n.pt')
 video_path = "./test.mp4"
 cap = cv2.VideoCapture(video_path)
+
+# Specifies at what time intervals (in seconds) traffic data is collected over
+DATA_COLLECTION_INTERVAL = 8
+total_time_requirement = DATA_COLLECTION_INTERVAL
+
+# The road's speed limit and the distance between the two marked lines
+SPEED_LIMIT = 66  # 45 mph = 66 ft/sec
+DIST = 35  # feet
+
+# Where vehicles should begin to be tracked
+TRACKING_BEGIN = 700
+# Where vehicles should cease to be tracked
+TRACKING_END = 900
 
 # Store the number of frames each vehicle was
 # between the lines
@@ -17,14 +28,10 @@ vehicle_frames = {}
 vehicle_times = []
 
 # Get the fps of the video for time calculation
-fps = cap.get(cv2.CAP_PROP_FPS)
+FPS = cap.get(cv2.CAP_PROP_FPS)
 
 # The number of frames into the video at a given time
 frame_count = 0
-
-# Specifies at what time intervals (in seconds) traffic data is collected over
-DATA_COLLECTION_INTERVAL = 8
-total_time_requirement = DATA_COLLECTION_INTERVAL
 
 percent_diff_list = []
 
@@ -91,12 +98,9 @@ def record_traffic_percentage(times_list, time):
     # The average of all the times
     avg_time = sum(times_list) / len(times_list)
 
-    speed_limit = 66  # 45 mph = 66 ft/sec
-    dist = 35  # feet
-
     # The time it would take to drive between
     # the two lines if going the speed limit
-    expected_time = dist / speed_limit
+    expected_time = DIST / SPEED_LIMIT
     # The increased time taken to cross between the lines due to traffic
     percent_diff = ((avg_time - expected_time) / expected_time) * 100
 
@@ -120,10 +124,7 @@ while cap.isOpened():
             continue
         """
 
-        # Where vehicles should begin to be tracked
-        TRACKING_BEGIN = 700
-        # Where vehicles should cease to be tracked
-        TRACKING_END = 900
+
 
         # Draw lines displaying starting and stopping points for checking data
         cv2.line(frame, (0, TRACKING_BEGIN), (2000, TRACKING_BEGIN), (0, 255, 0), 3)
@@ -147,7 +148,7 @@ while cap.isOpened():
 
             # Find the current time on the video
             frame_count += 1
-            vid_time = frame_count / fps
+            vid_time = frame_count / FPS
 
             print(f"Time: {vid_time}")
             print(f"Vehicle frames dict: {vehicle_frames}")
@@ -173,7 +174,7 @@ while cap.isOpened():
 
                         # Record the time that the vehicle was between the lines and delete its index in the dictionary
                         print(f"send data for {vehicle_id}")
-                        vehicle_times.append(vehicle_frames[vehicle_id] / fps)
+                        vehicle_times.append(vehicle_frames[vehicle_id] / FPS)
                         del vehicle_frames[vehicle_id]
 
             # If we have surpassed our time interval, process
