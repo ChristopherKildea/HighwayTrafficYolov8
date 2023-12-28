@@ -5,28 +5,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-# Load the YOLOv8 model
-model = YOLO('yolov8n.pt')
 
-# Open the video file
+model = YOLO('yolov8n.pt')
 video_path = "./test.mp4"
 cap = cv2.VideoCapture(video_path)
 
-# Store the track history
-# i.e. the number of frames the given vehicle was
+# Store the number of frames the given vehicle was
 # between the beginning and end lines
-vehicle_frames = defaultdict(lambda: 0)
+vehicle_frames = {}
 # List that gives the amount of times to go from the beginning ot the end liens
 # for each vehicle
 vehicle_times = []
 # Get the fps of the video for time calculation
 fps = cap.get(cv2.CAP_PROP_FPS)
 
-# The current number of frames gone over
+# The number of frames into the video at a given time
 frame_count = 0
 
 # Specifies at what intervals traffic data is collected over
-data_collection_interval = 1
+data_collection_interval = 8
 total_time_requirement = data_collection_interval
 
 percent_diff_list = []
@@ -64,6 +61,9 @@ def graph_data(graph_list):
         # Adjusting plot layout to ensure proper display
         plt.tight_layout()
 
+
+
+
         # Display the plot
         plt.show()
     else:
@@ -85,6 +85,9 @@ def graph_data(graph_list):
 
 
 def record_traffic_percentage(times_list, time):
+
+    print(f"time: {time}")
+    print(f"times_list: {times_list}")
 
     avg_time = sum(times_list) / len(times_list)
 
@@ -115,13 +118,15 @@ while cap.isOpened():
     if success:
 
         # must press a to advance ot next frame
+
         """
         if cv2.waitKey(0) & 0xFF == ord('n'):
             continue
         """
 
-        tracking_begin = 600
-        tracking_end = 900
+
+        tracking_begin = 700
+        tracking_end = 900#900
 
         # Draw lines displaying starting and stopping points for checking data
         cv2.line(frame, (0, tracking_begin), (2000, tracking_begin), (0, 255, 0), 3)
@@ -151,48 +156,56 @@ while cap.isOpened():
             frame_count += 1
             vid_time = frame_count / fps  # works
 
+            print(f"Time: {vid_time}")
+            print(f"Vehicle frames dict: {vehicle_frames}")
             # Plot the tracks
             for box, vehicle_id in zip(boxes, vehicle_ids):
 
                 # Dimensions of the bounding box
                 x, y, w, h = box
 
-                # Check if the box has passed the first line
-                if y > tracking_begin:
+                # Add the given vehicle to the list
+                if y <= tracking_begin and vehicle_frames.get(vehicle_id) is None:
 
-                    # print(f"Passed tracking_begin: {track_id}")
+                    vehicle_frames[vehicle_id] = 0
+
+                    #print(f"Below tracking begin: {vehicle_id}")
+
+                # Check if the box has passed the first line
+                elif y > tracking_begin and vehicle_frames.get(vehicle_id) is not None:
+
+                    #print(f"Passed tracking_begin: {vehicle_id}")
+
 
                     if y < tracking_end:  # The box is in between the first and seconds lines; add to its frame history
-                        # print(f"Between lines: {track_id}")
+                        #print(f"Between lines: {vehicle_id}")
+
                         vehicle_frames[vehicle_id] += 1
-                    elif y > tracking_end and vehicle_frames[vehicle_id] != 0:  # Below ending line and hasn't been recorded
-                        # calculate/record time
-                        # print(f"Passed tracking_end: {track_id}")
-                        # Calculate the time the vehicle took to cross from the beginning to the end line
-                        # based on the number of frames it was between the lines and the fps
+                    else:
 
+                        # Record the time that the vehicle was between the lines and delete its index in the dictionary
+                        print(f"send data for {vehicle_id}")
                         vehicle_times.append(vehicle_frames[vehicle_id] / fps)
-
-                        # set its value in the list to 0
-                        vehicle_frames[vehicle_id] = 0
+                        del vehicle_frames[vehicle_id]
 
             # If we have surpassed our time interval, process
             # the data for the given time interval
             if vid_time > total_time_requirement:
 
+
+                print(f"Reached: {total_time_requirement}")
+
                 # If there is data to collect
                 if len(vehicle_times) > 0:
+                    print("Sending vehicle_times data")
+                    print(vehicle_times)
 
-                    # This works
-
-                    # print(f"total_time_requirement: {total_time_requirement}")
-
-
-                    # Find average
 
                     # Process the data
                     record_traffic_percentage(vehicle_times, total_time_requirement)
                     vehicle_times.clear()
+                else:
+                    print("No data to record in this time interval")
 
 
                 # Calculate the next time to collect data
