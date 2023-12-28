@@ -1,4 +1,3 @@
-from collections import defaultdict
 import cv2
 from ultralytics import YOLO
 import matplotlib.pyplot as plt
@@ -10,19 +9,20 @@ model = YOLO('yolov8n.pt')
 video_path = "./test.mp4"
 cap = cv2.VideoCapture(video_path)
 
-# Store the number of frames the given vehicle was
-# between the beginning and end lines
+# Store the number of frames each vehicle was
+# between the lines
 vehicle_frames = {}
-# List that gives the amount of times to go from the beginning ot the end liens
-# for each vehicle
+
+# Store the time each vehicle was between the lines
 vehicle_times = []
+
 # Get the fps of the video for time calculation
 fps = cap.get(cv2.CAP_PROP_FPS)
 
 # The number of frames into the video at a given time
 frame_count = 0
 
-# Specifies at what intervals traffic data is collected over
+# Specifies at what time intervals (in seconds) traffic data is collected over
 data_collection_interval = 8
 total_time_requirement = data_collection_interval
 
@@ -30,76 +30,78 @@ percent_diff_list = []
 
 
 def graph_data(graph_list):
+    """
+    Plots and graphs the given data
+
+    :param graph_list: A list of data points to plot
+    """
+
     time = [item[0] for item in graph_list]
     percent_difference = [item[1] for item in graph_list]
 
     if len(time) != 0:
 
+        # Create/plot points
         plt.figure(figsize=(16, 6))
-        ax = plt.gca()  # Getting the current axes
+        ax = plt.gca()
+        ax.plot(time, percent_difference, marker='o')
 
-        ax.plot(time, percent_difference, marker='o')  # Plotting the data points
-
-        # Adding labels and title
+        # Add labels and title
         ax.set_xlabel('Time (Sec)')
         ax.set_ylabel('Percent Difference')
         ax.set_title('Time vs Percent Difference')
 
-        # Creating the table data
+        # Create table data/table
         table_data = np.column_stack([time, np.round(percent_difference, 1)])
-
-        # Manually setting the position of the table relative to the plot's axes
-        # The bbox argument defines the position: [left, bottom, width, height]
         table = ax.table(cellText=table_data, colLabels=['Time', 'Percent Difference'], loc='center right',
                          bbox=[1.1, 0.1, 0.2, 0.8])
 
-        # Adjusting table properties for better layout
+        # Adjust properties of tables for better layout
         table.auto_set_font_size(False)
         table.set_fontsize(8)
         table.scale(1, 1.5)
 
-        # Adjusting plot layout to ensure proper display
         plt.tight_layout()
 
-
-
-
-        # Display the plot
         plt.show()
     else:
+        # When an empty list has been passed in and no data is available
+        # to be graphed
+
+        # Display a message stating that not enough time was given for data
+        # collection
         text = "Video has not reached minimum time interval for data collection"
         print(text)
 
-        # Create a figure and axis
         fig, ax = plt.subplots(figsize=(10, 6))
-        # Hide the axes
         ax.axis('off')
-        # Display the text
         ax.text(0.5, 0.5, text, fontsize=20, ha='center', color='red')
 
-
-        # Show the plot
         plt.show()
 
 
-
-
 def record_traffic_percentage(times_list, time):
+    """
+    Average a list of times and calculate the percentage of traffic present
 
-    print(f"time: {time}")
-    print(f"times_list: {times_list}")
+    :param times_list: A list of times the vehicles were between the lines
+    :param time: The time at which this data corresponds to
+    """
 
+    # The average of all the times
     avg_time = sum(times_list) / len(times_list)
 
     speed_limit = 66  # 45 mph = 66 ft/sec
     dist = 35  # feet
 
-    # The time to go the distance if going the speed limit
+    # The time it would take to drive between
+    # the two lines if going the speed limit
     expected_time = dist / speed_limit
-
+    # The increased time taken to cross between the lines due to traffic
     percent_diff = ((avg_time - expected_time) / expected_time) * 100
 
-    # Make traffic 0% if cars are going above the speed limit
+    # If cars are going above the speed limit, there is no traffic
+    # Make the traffic percentage 0
     if percent_diff < 0:
         percent_diff = 0
 
@@ -126,7 +128,7 @@ while cap.isOpened():
 
 
         tracking_begin = 700
-        tracking_end = 900#900
+        tracking_end = 900
 
         # Draw lines displaying starting and stopping points for checking data
         cv2.line(frame, (0, tracking_begin), (2000, tracking_begin), (0, 255, 0), 3)
@@ -135,15 +137,11 @@ while cap.isOpened():
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
         results = model.track(frame, persist=True, conf=0.1, classes=[2,7])
 
-
         if results[0] != None and results[0].boxes.id != None:
-
 
             # Get the boxes and track IDs
             boxes = results[0].boxes.xywh.cpu()
             vehicle_ids = results[0].boxes.id.int().cpu().tolist()
-
-
 
             # Visualize the results on the frame
             annotated_frame = results[0].plot()
@@ -168,8 +166,6 @@ while cap.isOpened():
                 if y <= tracking_begin and vehicle_frames.get(vehicle_id) is None:
 
                     vehicle_frames[vehicle_id] = 0
-
-                    #print(f"Below tracking begin: {vehicle_id}")
 
                 # Check if the box has passed the first line
                 elif y > tracking_begin and vehicle_frames.get(vehicle_id) is not None:
@@ -210,6 +206,7 @@ while cap.isOpened():
 
                 # Calculate the next time to collect data
                 total_time_requirement += data_collection_interval
+
 
         # we can loop through the object's bounding boxes and see if they are below a certain point
         # Break the loop if 'q' is pressed
