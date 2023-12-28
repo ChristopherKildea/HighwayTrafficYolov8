@@ -9,7 +9,6 @@ cap = cv2.VideoCapture(video_path)
 
 # Specifies at what time intervals (in seconds) traffic data is collected over
 DATA_COLLECTION_INTERVAL = 8
-total_time_requirement = DATA_COLLECTION_INTERVAL
 
 # The road's speed limit and the distance between the two marked lines
 SPEED_LIMIT = 66  # 45 mph = 66 ft/sec
@@ -29,9 +28,6 @@ vehicle_times = []
 
 # Get the fps of the video for time calculation
 FPS = cap.get(cv2.CAP_PROP_FPS)
-
-# The number of frames into the video at a given time
-frame_count = 0
 
 percent_diff_list = []
 
@@ -112,102 +108,122 @@ def record_traffic_percentage(times_list, time):
     percent_diff_list.append([time, percent_diff])  # 1 will be replaced whatever the correct time is
 
 
-while cap.isOpened():
-    # Read a frame from the video
-    success, frame = cap.read()
+def analyze_video(by_frame):
+    """
+    Goes through a video and tracks the speed of cars/trucks between
+    the two lines
 
-    if success:
+    :param by_frame: "True" to manually iterate the video frame-by-frame, "False" to
+    allow the video to play out
+    :return:
+    """
 
-        """
-        # Uncomment if you want to go through the video frame by frame
-        if cv2.waitKey(0) & 0xFF == ord('n'):
-            continue
-        """
+    total_time_requirement = DATA_COLLECTION_INTERVAL
 
+    # The number of frames into the video at a given time
+    frame_count = 0
 
+    while cap.isOpened():
+        # Read a frame from the video
+        success, frame = cap.read()
 
-        # Draw lines displaying starting and stopping points for checking data
-        cv2.line(frame, (0, TRACKING_BEGIN), (2000, TRACKING_BEGIN), (0, 255, 0), 3)
-        cv2.line(frame, (0, TRACKING_END), (2000, TRACKING_END), (0, 0, 255), 3)
+        if success:
 
-        # Run YOLOv8 tracking on the frame, persisting tracks between frames
-        results = model.track(frame, persist=True, conf=0.1, classes=[2,7])
+            # Manually iterate through the video frame-by-frame if by_frame is True
+            if by_frame:
+                if cv2.waitKey(0) & 0xFF == ord('n'):
+                    continue
 
-        if results[0] is not None and results[0].boxes.id is not None:
+            # Draw lines displaying starting and stopping points for checking data
+            cv2.line(frame, (0, TRACKING_BEGIN), (2000, TRACKING_BEGIN), (0, 255, 0), 3)
+            cv2.line(frame, (0, TRACKING_END), (2000, TRACKING_END), (0, 0, 255), 3)
 
-            # Get the boxes and track IDs
-            boxes = results[0].boxes.xywh.cpu()
-            vehicle_ids = results[0].boxes.id.int().cpu().tolist()
+            # Run YOLOv8 tracking on the frame, persisting tracks between frames
+            results = model.track(frame, persist=True, conf=0.1, classes=[2,7])
 
-            # Visualize the results on the frame
-            annotated_frame = results[0].plot()
+            if results[0] is not None and results[0].boxes.id is not None:
 
-            # Display the annotated frame
-            annotated_frame = cv2.resize(annotated_frame, (960,540))
-            cv2.imshow("YOLOv8 Tracking", annotated_frame)
+                # Get the boxes and track IDs
+                boxes = results[0].boxes.xywh.cpu()
+                vehicle_ids = results[0].boxes.id.int().cpu().tolist()
 
-            # Find the current time on the video
-            frame_count += 1
-            vid_time = frame_count / FPS
+                # Visualize the results on the frame
+                annotated_frame = results[0].plot()
 
-            print(f"Time: {vid_time}")
-            print(f"Vehicle frames dict: {vehicle_frames}")
+                # Display the annotated frame
+                annotated_frame = cv2.resize(annotated_frame, (960,540))
+                cv2.imshow("YOLOv8 Tracking", annotated_frame)
 
-            # Plot the tracks
-            for box, vehicle_id in zip(boxes, vehicle_ids):
+                # Find the current time on the video
+                frame_count += 1
+                vid_time = frame_count / FPS
 
-                # Dimensions of the bounding box
-                x, y, w, h = box
+                print(f"Time: {vid_time}")
+                print(f"Vehicle frames dict: {vehicle_frames}")
 
-                # Add the given vehicle to the list
-                if y <= TRACKING_BEGIN and vehicle_frames.get(vehicle_id) is None:
+                # Plot the tracks
+                for box, vehicle_id in zip(boxes, vehicle_ids):
 
-                    vehicle_frames[vehicle_id] = 0
+                    # Dimensions of the bounding box
+                    x, y, w, h = box
 
-                # Check if the box has passed the first line
-                elif y > TRACKING_BEGIN and vehicle_frames.get(vehicle_id) is not None:
+                    # Add the given vehicle to the list
+                    if y <= TRACKING_BEGIN and vehicle_frames.get(vehicle_id) is None:
 
-                    if y < TRACKING_END:  # The box is in between the first and seconds lines; add to its frame history
+                        vehicle_frames[vehicle_id] = 0
 
-                        vehicle_frames[vehicle_id] += 1
+                    # Check if the box has passed the first line
+                    elif y > TRACKING_BEGIN and vehicle_frames.get(vehicle_id) is not None:
+
+                        if y < TRACKING_END:  # The box is in between the first and seconds lines; add to its frame history
+
+                            vehicle_frames[vehicle_id] += 1
+                        else:
+
+                            # Record the time that the vehicle was between the lines and delete its index in the dictionary
+                            print(f"send data for {vehicle_id}")
+                            vehicle_times.append(vehicle_frames[vehicle_id] / FPS)
+                            del vehicle_frames[vehicle_id]
+
+                # If we have surpassed our time interval, process
+                # the data for the given time interval
+                if vid_time > total_time_requirement:
+
+                    # If there is data to collect
+                    if len(vehicle_times) > 0:
+                        print("Sending vehicle_times data")
+                        print(vehicle_times)
+
+                        # Process the data
+                        record_traffic_percentage(vehicle_times, total_time_requirement)
+                        vehicle_times.clear()
                     else:
+                        print("No data to record in this time interval")
 
-                        # Record the time that the vehicle was between the lines and delete its index in the dictionary
-                        print(f"send data for {vehicle_id}")
-                        vehicle_times.append(vehicle_frames[vehicle_id] / FPS)
-                        del vehicle_frames[vehicle_id]
+                    # Calculate the next time to collect data
+                    total_time_requirement += DATA_COLLECTION_INTERVAL
 
-            # If we have surpassed our time interval, process
-            # the data for the given time interval
-            if vid_time > total_time_requirement:
-
-                # If there is data to collect
-                if len(vehicle_times) > 0:
-                    print("Sending vehicle_times data")
-                    print(vehicle_times)
-
-                    # Process the data
-                    record_traffic_percentage(vehicle_times, total_time_requirement)
-                    vehicle_times.clear()
-                else:
-                    print("No data to record in this time interval")
-
-                # Calculate the next time to collect data
-                total_time_requirement += DATA_COLLECTION_INTERVAL
-
-        # we can loop through the object's bounding boxes and see if they are below a certain point
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            print("Q has been pressed")
+            # we can loop through the object's bounding boxes and see if they are below a certain point
+            # Break the loop if 'q' is pressed
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                print("Q has been pressed")
+                break
+        else:
+            # Break the loop if the end of the video is reached
+            print("Video end reached")
             break
-    else:
-        # Break the loop if the end of the video is reached
-        print("Video end reached")
-        break
 
-# graph and display data
-graph_data(percent_diff_list)
+    # Release the video capture object and close the display window
+    cap.release()
+    cv2.destroyAllWindows()
 
-# Release the video capture object and close the display window
-cap.release()
-cv2.destroyAllWindows()
+    return percent_diff_list
+
+
+def main():
+    traffic_data = analyze_video(False)
+    graph_data(traffic_data)
+
+
+if __name__ == "__main__":
+    main()
