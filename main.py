@@ -23,8 +23,8 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 frame_count = 0
 
 # Specifies at what time intervals (in seconds) traffic data is collected over
-data_collection_interval = 8
-total_time_requirement = data_collection_interval
+DATA_COLLECTION_INTERVAL = 8
+total_time_requirement = DATA_COLLECTION_INTERVAL
 
 percent_diff_list = []
 
@@ -108,36 +108,31 @@ def record_traffic_percentage(times_list, time):
     percent_diff_list.append([time, percent_diff])  # 1 will be replaced whatever the correct time is
 
 
-
-
-
-
-
 while cap.isOpened():
     # Read a frame from the video
     success, frame = cap.read()
 
     if success:
 
-        # must press a to advance ot next frame
-
         """
+        # Uncomment if you want to go through the video frame by frame
         if cv2.waitKey(0) & 0xFF == ord('n'):
             continue
         """
 
-
-        tracking_begin = 700
-        tracking_end = 900
+        # Where vehicles should begin to be tracked
+        TRACKING_BEGIN = 700
+        # Where vehicles should cease to be tracked
+        TRACKING_END = 900
 
         # Draw lines displaying starting and stopping points for checking data
-        cv2.line(frame, (0, tracking_begin), (2000, tracking_begin), (0, 255, 0), 3)
-        cv2.line(frame, (0, tracking_end), (2000, tracking_end), (0, 0, 255), 3)
+        cv2.line(frame, (0, TRACKING_BEGIN), (2000, TRACKING_BEGIN), (0, 255, 0), 3)
+        cv2.line(frame, (0, TRACKING_END), (2000, TRACKING_END), (0, 0, 255), 3)
 
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
         results = model.track(frame, persist=True, conf=0.1, classes=[2,7])
 
-        if results[0] != None and results[0].boxes.id != None:
+        if results[0] is not None and results[0].boxes.id is not None:
 
             # Get the boxes and track IDs
             boxes = results[0].boxes.xywh.cpu()
@@ -152,10 +147,11 @@ while cap.isOpened():
 
             # Find the current time on the video
             frame_count += 1
-            vid_time = frame_count / fps  # works
+            vid_time = frame_count / fps
 
             print(f"Time: {vid_time}")
             print(f"Vehicle frames dict: {vehicle_frames}")
+
             # Plot the tracks
             for box, vehicle_id in zip(boxes, vehicle_ids):
 
@@ -163,18 +159,14 @@ while cap.isOpened():
                 x, y, w, h = box
 
                 # Add the given vehicle to the list
-                if y <= tracking_begin and vehicle_frames.get(vehicle_id) is None:
+                if y <= TRACKING_BEGIN and vehicle_frames.get(vehicle_id) is None:
 
                     vehicle_frames[vehicle_id] = 0
 
                 # Check if the box has passed the first line
-                elif y > tracking_begin and vehicle_frames.get(vehicle_id) is not None:
+                elif y > TRACKING_BEGIN and vehicle_frames.get(vehicle_id) is not None:
 
-                    #print(f"Passed tracking_begin: {vehicle_id}")
-
-
-                    if y < tracking_end:  # The box is in between the first and seconds lines; add to its frame history
-                        #print(f"Between lines: {vehicle_id}")
+                    if y < TRACKING_END:  # The box is in between the first and seconds lines; add to its frame history
 
                         vehicle_frames[vehicle_id] += 1
                     else:
@@ -188,14 +180,10 @@ while cap.isOpened():
             # the data for the given time interval
             if vid_time > total_time_requirement:
 
-
-                print(f"Reached: {total_time_requirement}")
-
                 # If there is data to collect
                 if len(vehicle_times) > 0:
                     print("Sending vehicle_times data")
                     print(vehicle_times)
-
 
                     # Process the data
                     record_traffic_percentage(vehicle_times, total_time_requirement)
@@ -203,10 +191,8 @@ while cap.isOpened():
                 else:
                     print("No data to record in this time interval")
 
-
                 # Calculate the next time to collect data
-                total_time_requirement += data_collection_interval
-
+                total_time_requirement += DATA_COLLECTION_INTERVAL
 
         # we can loop through the object's bounding boxes and see if they are below a certain point
         # Break the loop if 'q' is pressed
@@ -220,8 +206,6 @@ while cap.isOpened():
 
 # graph and display data
 graph_data(percent_diff_list)
-
-
 
 # Release the video capture object and close the display window
 cap.release()
